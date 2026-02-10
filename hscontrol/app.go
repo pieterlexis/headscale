@@ -20,6 +20,8 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/davecgh/go-spew/spew"
+	legoChallenge "github.com/go-acme/lego/v4/challenge"
+	legoDnsProviders "github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/metrics"
@@ -99,9 +101,10 @@ type Headscale struct {
 	DERPServer *derpServer.DERPServer
 
 	// Things that generate changes
-	extraRecordMan *dns.ExtraRecordsMan
-	authProvider   AuthProvider
-	mapBatcher     mapper.Batcher
+	extraRecordMan        *dns.ExtraRecordsMan
+	authProvider          AuthProvider
+	mapBatcher            mapper.Batcher
+	acmeChallengeProvider legoChallenge.Provider
 
 	clientStreamsOpen sync.WaitGroup
 }
@@ -208,6 +211,15 @@ func NewHeadscale(cfg *types.Config) (*Headscale, error) {
 
 		for _, d := range magicDNSDomains {
 			app.cfg.TailcfgDNSConfig.Routes[d.WithoutTrailingDot()] = nil
+		}
+
+		if app.cfg.DNSConfig.CertChallengeSolver != "" {
+			provider, err := legoDnsProviders.NewDNSChallengeProviderByName(cfg.DNSConfig.CertChallengeSolver)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create cert challenge solver: %w", err)
+			}
+
+			app.acmeChallengeProvider = provider
 		}
 	}
 
