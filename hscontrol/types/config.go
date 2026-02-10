@@ -106,13 +106,14 @@ type Config struct {
 }
 
 type DNSConfig struct {
-	MagicDNS         bool   `mapstructure:"magic_dns"`
-	BaseDomain       string `mapstructure:"base_domain"`
-	OverrideLocalDNS bool   `mapstructure:"override_local_dns"`
-	Nameservers      Nameservers
-	SearchDomains    []string            `mapstructure:"search_domains"`
-	ExtraRecords     []tailcfg.DNSRecord `mapstructure:"extra_records"`
-	ExtraRecordsPath string              `mapstructure:"extra_records_path"`
+	MagicDNS            bool   `mapstructure:"magic_dns"`
+	BaseDomain          string `mapstructure:"base_domain"`
+	OverrideLocalDNS    bool   `mapstructure:"override_local_dns"`
+	Nameservers         Nameservers
+	SearchDomains       []string            `mapstructure:"search_domains"`
+	ExtraRecords        []tailcfg.DNSRecord `mapstructure:"extra_records"`
+	ExtraRecordsPath    string              `mapstructure:"extra_records_path"`
+	CertChallengeSolver string              `mapstructure:"cert_challenge_solver"`
 }
 
 type Nameservers struct {
@@ -359,6 +360,8 @@ func LoadConfig(path string, isFile bool) error {
 	viper.SetDefault("dns.nameservers.global", []string{})
 	viper.SetDefault("dns.nameservers.split", map[string]string{})
 	viper.SetDefault("dns.search_domains", []string{})
+
+	viper.SetDefault("dns.cert_challenge_solver", nil)
 
 	viper.SetDefault("derp.server.enabled", false)
 	viper.SetDefault("derp.server.verify_clients", true)
@@ -732,6 +735,7 @@ func dns() (DNSConfig, error) {
 	dns.Nameservers.Split = viper.GetStringMapStringSlice("dns.nameservers.split")
 	dns.SearchDomains = viper.GetStringSlice("dns.search_domains")
 	dns.ExtraRecordsPath = viper.GetString("dns.extra_records_path")
+	dns.CertChallengeSolver = viper.GetString("dns.cert_challenge_solver")
 
 	if viper.IsSet("dns.extra_records") {
 		var extraRecords []tailcfg.DNSRecord
