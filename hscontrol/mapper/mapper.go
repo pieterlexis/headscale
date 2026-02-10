@@ -124,6 +124,16 @@ func generateDNSConfig(
 
 	dnsConfig := cfg.TailcfgDNSConfig.Clone()
 
+	if cfg.DNSConfig.CertChallengeSolver != "" {
+		dnsConfig.CertDomains = []string{
+			node.GivenName() + "." + cfg.DNSConfig.BaseDomain,
+		}
+		if node.Hostname() != node.GivenName() {
+			dnsConfig.CertDomains = append(dnsConfig.CertDomains, node.Hostname()+"."+cfg.DNSConfig.BaseDomain)
+		}
+		// TODO: add services tags?
+	}
+
 	addNextDNSMetadata(dnsConfig.Resolvers, node)
 
 	return dnsConfig

@@ -141,7 +141,7 @@ func (h *Headscale) NoiseUpgradeHandler(
 		// client sends a [tailcfg.SetDNSRequest] to this endpoints and expect
 		// the server to create or update this DNS record "somewhere".
 		// It is typically a TXT record for an ACME challenge.
-		r.Post("/set-dns", ns.NotImplementedHandler)
+		r.Post("/set-dns", ns.NoiseSetDNSHandler)
 
 		// A patch of [tailcfg.SetDeviceAttributesRequest] to update device attributes.
 		// We currently do not support device attributes.
@@ -623,6 +623,61 @@ func (ns *noiseServer) RegistrationHandler(
 	err := json.NewEncoder(writer).Encode(registerResponse)
 	if err != nil {
 		log.Error().Caller().Err(err).Msg("noise registration handler: failed to encode RegisterResponse")
+		return
+	}
+
+	// Ensure response is flushed to client
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (ns *noiseServer) NoiseSetDNSHandler(
+	writer http.ResponseWriter,
+	req *http.Request,
+) {
+	if req.Method != http.MethodPost {
+		httpError(writer, errMethodNotAllowed)
+
+		return
+	}
+
+	setDNSRequest, setDNSResponse := func() (*tailcfg.SetDNSRequest, *tailcfg.SetDNSResponse) { //nolint:contextcheck
+		var resp *tailcfg.SetDNSResponse
+
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return &tailcfg.SetDNSRequest{}, &tailcfg.SetDNSResponse{}
+		}
+
+		var setDNSReq tailcfg.SetDNSRequest
+
+		err = json.Unmarshal(body, &setDNSReq)
+		if err != nil {
+			return &setDNSReq, &tailcfg.SetDNSResponse{}
+		}
+
+		ns.nodeKey = setDNSReq.NodeKey
+
+		resp, err = ns.headscale.handleSetDNS(req.Context(), setDNSReq)
+		if err != nil {
+			return &setDNSReq, &tailcfg.SetDNSResponse{}
+		}
+
+		return &setDNSReq, resp
+	}()
+
+	// Reject unsupported versions
+	if rejectUnsupported(writer, setDNSRequest.Version, ns.machineKey, setDNSRequest.NodeKey) {
+		return
+	}
+
+	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+	writer.WriteHeader(http.StatusOK)
+
+	err := json.NewEncoder(writer).Encode(setDNSResponse)
+	if err != nil {
+		log.Error().Caller().Err(err).Msg("noise registration handler: failed to encode SetDNSResponse")
 		return
 	}
 
