@@ -13,10 +13,12 @@ func (h *Headscale) handleSetDNS(
 ) (*tailcfg.SetDNSResponse, error) {
 	name := strings.TrimPrefix(setDNSReq.Name, "_acme-challenge.")
 
-	err := h.acmeChallengeProvider.Present(name, "", setDNSReq.Value)
+	err := h.certSolver.challengeProvider.Present(name, "", setDNSReq.Value)
 	if err != nil {
 		return nil, err
 	}
+
+	err = h.certSolver.stubResolver.CheckDNSPropagation(setDNSReq.Name, setDNSReq.Value)
 
 	return &tailcfg.SetDNSResponse{}, nil
 }

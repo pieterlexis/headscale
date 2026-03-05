@@ -101,10 +101,13 @@ type Headscale struct {
 	DERPServer *derpServer.DERPServer
 
 	// Things that generate changes
-	extraRecordMan        *dns.ExtraRecordsMan
-	authProvider          AuthProvider
-	mapBatcher            mapper.Batcher
-	acmeChallengeProvider legoChallenge.Provider
+	extraRecordMan *dns.ExtraRecordsMan
+	authProvider   AuthProvider
+	mapBatcher     mapper.Batcher
+	certSolver     struct {
+		challengeProvider legoChallenge.Provider
+		stubResolver      *StubResolver
+	}
 
 	clientStreamsOpen sync.WaitGroup
 }
@@ -219,7 +222,11 @@ func NewHeadscale(cfg *types.Config) (*Headscale, error) {
 				return nil, fmt.Errorf("unable to create cert challenge solver: %w", err)
 			}
 
-			app.acmeChallengeProvider = provider
+			app.certSolver.challengeProvider = provider
+			app.certSolver.stubResolver = &StubResolver{
+				timeout:              5 * time.Second,
+				recursiveNameservers: []string{"9.9.9.9"},
+			}
 		}
 	}
 
